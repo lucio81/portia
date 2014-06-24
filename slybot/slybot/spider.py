@@ -2,7 +2,7 @@ import itertools
 import operator
 import re
 from copy import deepcopy
-
+from datetime import datetime
 from scrapy import log
 from scrapy.http import Request, HtmlResponse, FormRequest
 try:
@@ -40,6 +40,12 @@ def _process_extracted_data(extracted_data, item_descriptor, htmlpage):
 class IblSpider(Spider):
 
     def __init__(self, name, spec, item_schemas, all_extractors, **kw):
+        self.custom_regex = re.compile('\{\[(\w+)\.?(\d{1,2})?\]\}')
+        today = datetime.now()
+        self.date_dict = {
+            'day': today.day,
+            'month': today.month,
+            'year': today.year}
         super(IblSpider, self).__init__(name, **kw)
         spec = deepcopy(spec)
         for key, val in kw.items():
@@ -298,6 +304,19 @@ class IblSpider(Spider):
         """make a filter for links"""
         respect_nofollow = spec.get('respect_nofollow', True)
         patterns = spec.get('follow_patterns')
+        for i, pattern in enumerate(patterns):
+            for key in self.date_dict.keys():
+                date_custom = self.custom_regex.search(pattern)
+                if not date_custom is None:
+                    groups = date_custom.groups()
+                    date_token = groups[0]
+                    date_format = '%' + groups[1] + 'd' if len(groups) == 2 else '%02d'
+                    print '\{\[%s\.?\d{1,2}?\]\}' % date_token
+                    print date_format % self.date_dict[date_token]
+                    print pattern
+                    pattern = re.sub('\{\[%s\.?\d{1,2}?\]\}' % date_token, date_format % self.date_dict[date_token], pattern)
+            patterns[i] = pattern
+        print patterns
         if spec.get("links_to_follow") == "none":
             url_filterf = lambda x: False
         elif patterns:
