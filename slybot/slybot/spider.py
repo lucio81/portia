@@ -103,6 +103,8 @@ class IblSpider(Spider):
         if not self.allowed_domains:
             self.allowed_domains = None
 
+        self.spec = spec
+
     def _process_start_urls(self, spec):
         self.start_urls = spec.get('start_urls')
         for url in self.start_urls:
@@ -259,12 +261,19 @@ class IblSpider(Spider):
                 yield request
 
     def handle_html(self, response):
+        follow = True
+        follow_patterns = self.spec['follow_patterns'] #find the follow pattern for this page
+        for pattern in follow_patterns:
+            if "[DONTFOLLOW]?" in pattern and re.match(".*"+pattern+".*", response.url):
+                follow = False
         htmlpage = htmlpage_from_response(response)
         items, link_regions = self.extract_items(htmlpage)
         for item in items:
-            yield item
+            if follow:
+                yield item
         for request in self._process_link_regions(htmlpage, link_regions):
-            yield request
+            if follow:
+                yield request
 
     def extract_items(self, htmlpage):
         """This method is also called from UI webservice to extract items"""
